@@ -1,34 +1,63 @@
-#include "TM4C123.h"                    // Device header
+#include "stm32f4xx.h"                  // Device header
 
-#define RED (1<<1)
-#define BLUE (1<<2)
-#define GREEN (1<<3)
+void Led_Init(void);
+void SysTick_Init(void);
+uint32_t getTick(void);
+void delayS(uint32_t seconds);
+void Led_On(void);
+void Led_Off(void);
 
-void Timer1_OneShot(int mdelay);
+volatile uint32_t tick, _tick;
 
 int main(void){
-	
-	SYSCTL->RCGCGPIO |= (1<<5);
-	GPIOF->DIR |= RED | BLUE | GREEN;
-	GPIOF->DEN |= RED | BLUE | GREEN;
+	Led_Init();
+	SysTick_Init();
 	
 	while(1){
-		GPIOF->DATA ^= RED;
-		Timer1_OneShot(4);
+		Led_On();
+		delayS(1);
+		Led_Off();
+		delayS(1);
 	}
 }
 
-
-
-void Timer1_OneShot(int mdelay){
-
-	SYSCTL->RCGCTIMER |= 0x01; // CLOCK FOR TIMER 0
-	TIMER0->CTL = 0x00;
-	TIMER0->CFG = 0X04; //16 bit mode
-	TIMER0->TAMR = 0x01; //one shot mode
-	TIMER0->TAILR |= 1600 *mdelay-1;
-	TIMER0->ICR = 0x1;
-	TIMER0->CTL |= 0x01;
-	while((TIMER0->RIS & 0x01) == 0){}
+void Led_Init(void){
+	RCC->AHB1ENR |= 0x01;		//ENABLE CLOCK FOR PORTA FROM BUS AHB1
+	GPIOA->MODER |= 0x400;		//OUTPUT MODE PA5
+	GPIOA->MODER |= 0X01;
+	GPIOA->MODER |= 0X02;
+	GPIOA->MODER |= 0X04;
+	
 }
 
+void SysTick_Init(void){
+	SystemCoreClockUpdate();
+	SysTick_Config(SystemCoreClock/100u);
+	__enable_irq();
+}
+
+void SysTick_Handler(void){
+	tick++;
+}
+
+uint32_t getTick(void){
+	__disable_irq();
+	_tick =  tick;
+	__enable_irq();
+	
+	return _tick;
+}
+
+void delayS(uint32_t seconds){
+	seconds *= 100;
+	uint32_t temp = getTick();
+	while((getTick() - temp) < seconds){}
+}
+
+void Led_On(void){
+	GPIOA->ODR |= (1<<5);
+}
+
+void Led_Off(void){
+	GPIOA->ODR &= ~(1<<5);
+}
